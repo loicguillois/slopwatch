@@ -1,0 +1,123 @@
+name: "slopwatch"
+description: "Detect slopsquatting attacks — AI-hallucinated packages in your dependencies"
+author: "Loic Guillois"
+
+branding:
+  icon: "shield"
+  color: "red"
+
+inputs:
+  path:
+    description: "Path to the project directory to scan"
+    required: false
+    default: "."
+  format:
+    description: "Output format: terminal, json, sarif"
+    required: false
+    default: "sarif"
+  threshold:
+    description: "Trust score threshold for CRITICAL severity (default: 22)"
+    required: false
+    default: "22"
+  fail-on-critical:
+    description: "Fail the action if CRITICAL packages are found"
+    required: false
+    default: "true"
+  version:
+    description: "slopwatch version to use (default: latest)"
+    required: false
+    default: "latest"
+
+outputs:
+  results:
+    description: "JSON scan results"
+    value: ${{ steps.scan.outputs.results }}
+  critical-count:
+    description: "Number of CRITICAL packages found"
+    value: ${{ steps.scan.outputs.critical_count }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Determine version
+      id: version
+      shell: bash
+      run: |
+        if [ "${{ inputs.version }}" = "latest" ]; then
+          VERSION=$(gh api repos/${{ github.action_repository }}/releases/latest --jq '.tag_name' 2>/dev/null || echo "v0.1.0")
+        else
+          VERSION="${{ inputs.version }}"
+        fi
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    - name: Download slopwatch
+      shell: bash
+      run: |
+        REPO="${{ github.action_repository }}"
+        VERSION="${{ steps.version.outputs.version }}"
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+
+        if [ "$OS" = "linux" ] && [ "$ARCH" = "x86_64" ]; then
+          ARTIFACT="slopwatch-linux-x86_64"
+        elif [ "$OS" = "darwin" ] && [ "$ARCH" = "x86_64" ]; then
+          ARTIFACT="slopwatch-macos-x86_64"
+        elif [ "$OS" = "darwin" ] && [ "$ARCH" = "arm64" ]; then
+          ARTIFACT="slopwatch-macos-aarch64"
+        else
+          echo "::error::Unsupported platform: $OS $ARCH"
+          exit 1
+        fi
+
+        gh release download "$VERSION" \
+          --repo "$REPO" \
+          --pattern "$ARTIFACT" \
+          --dir /tmp/slopwatch-bin
+
+        chmod +x "/tmp/slopwatch-bin/$ARTIFACT"
+        mv "/tmp/slopwatch-bin/$ARTIFACT" /tmp/slopwatch-bin/slopwatch
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    - name: Run slopwatch scan
+      id: scan
+      shell: bash
+      run: |
+        set +e
+        /tmp/slopwatch-bin/slopwatch scan "${{ inputs.path }}" \
+          --format "${{ inputs.format }}" \
+          --threshold "${{ inputs.threshold }}" \
+          --output "${{ runner.temp }}/slopwatch-report.sarif" \
+          2>/dev/null
+        EXIT_CODE=$?
+        set -e
+
+        # Also generate JSON for outputs
+        RESULTS=$(/tmp/slopwatch-bin/slopwatch scan "${{ inputs.path }}" \
+          --format json \
+          --threshold "${{ inputs.threshold }}" 2>/dev/null || echo "[]")
+
+        CRITICAL_COUNT=$(echo "$RESULTS" | python3 -c "
+        import json, sys
+        data = json.load(sys.stdin)
+        print(sum(1 for r in data if r.get('severity') in ('Critical', 'NotFound')))
+        " 2>/dev/null || echo "0")
+
+        echo "results<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$RESULTS" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+        echo "critical_count=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
+
+        if [ "${{ inputs.fail-on-critical }}" = "true" ] && [ "$EXIT_CODE" -ne 0 ]; then
+          echo "::error::slopwatch found critical packages. Review the results above."
+          exit 1
+        fi
+
+    - name: Upload SARIF
+      if: inputs.format == 'sarif' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ runner.temp }}/slopwatch-report.sarif
+      continue-on-error: true
