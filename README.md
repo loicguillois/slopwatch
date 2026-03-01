@@ -9,7 +9,7 @@ Detect **slopsquatting** attacks — AI-hallucinated packages registered by atta
 
 Large Language Models regularly hallucinate package names that don't exist. Attackers register these names on npm and PyPI, turning every `pip install` or `npm install` from AI-generated code into a potential supply-chain attack.
 
-A [Trend Micro study](https://www.trendmicro.com/en_us/research/25/b/slopsquatting-threat.html) found that **21 out of 126** AI-hallucinated package names had been registered on PyPI — some containing malicious code.
+A [Trend Micro study](https://www.trendmicro.com/vinfo/us/security/news/cybercrime-and-digital-threats/slopsquatting-when-ai-agents-hallucinate-malicious-packages) found that **21 out of 126** AI-hallucinated package names had been registered on PyPI — some containing malicious code.
 
 **slopwatch** scans your dependency files and scores each package with a trust model trained on real slopsquatting data. No dictionary of known-bad names: it uses statistical metadata analysis to detect suspicious packages regardless of whether they've been seen before.
 
