@@ -44,7 +44,7 @@ runs:
       shell: bash
       run: |
         if [ "${{ inputs.version }}" = "latest" ]; then
-          VERSION=$(gh api repos/${{ github.action_repository }}/releases/latest --jq '.tag_name' 2>/dev/null || echo "v0.1.0")
+          VERSION=$(gh api repos/loicguillois/slopwatch/releases/latest --jq '.tag_name' 2>/dev/null || echo "v0.1.0")
         else
           VERSION="${{ inputs.version }}"
         fi
@@ -55,7 +55,7 @@ runs:
     - name: Download slopwatch
       shell: bash
       run: |
-        REPO="${{ github.action_repository }}"
+        REPO="loicguillois/slopwatch"
         VERSION="${{ steps.version.outputs.version }}"
         OS=$(uname -s | tr '[:upper:]' '[:lower:]')
         ARCH=$(uname -m)
