@@ -86,12 +86,22 @@ runs:
       shell: bash
       run: |
         set +e
+
+        # First, display results in terminal format for visibility
+        echo "::group::Slopwatch Scan Results"
         /tmp/slopwatch-bin/slopwatch scan "${{ inputs.path }}" \
-          --format "${{ inputs.format }}" \
+          --format terminal \
+          --threshold "${{ inputs.threshold }}" 2>&1
+        EXIT_CODE=$?
+        echo "::endgroup::"
+
+        # Generate SARIF output file
+        /tmp/slopwatch-bin/slopwatch scan "${{ inputs.path }}" \
+          --format sarif \
           --threshold "${{ inputs.threshold }}" \
           --output "${{ runner.temp }}/slopwatch-report.sarif" \
           2>/dev/null
-        EXIT_CODE=$?
+
         set -e
 
         # Also generate JSON for outputs
@@ -111,7 +121,7 @@ runs:
         echo "critical_count=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
 
         if [ "${{ inputs.fail-on-critical }}" = "true" ] && [ "$EXIT_CODE" -ne 0 ]; then
-          echo "::error::slopwatch found critical packages. Review the results above."
+          echo "::error::slopwatch found critical packages. Review the scan results above."
           exit 1
         fi
 
