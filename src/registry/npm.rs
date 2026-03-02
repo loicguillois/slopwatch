@@ -6,19 +6,21 @@ use crate::parser::Ecosystem;
 
 /// Batch fetch download counts for multiple npm packages.
 /// Returns a map of package name -> weekly downloads.
+///
+/// Note: npm's bulk API doesn't support scoped packages (@org/name),
+/// so those are fetched individually.
 pub fn batch_fetch_downloads(
     client: &reqwest::blocking::Client,
     names: &[&str],
 ) -> HashMap<String, u64> {
     let mut results = HashMap::new();
 
-    // npm API allows max ~128 packages per request, we'll use chunks of 100
-    for chunk in names.chunks(100) {
-        let packages = chunk
-            .iter()
-            .map(|n| urlencoding::encode(n))
-            .collect::<Vec<_>>()
-            .join(",");
+    // Separate scoped packages (not supported in bulk API) from regular packages
+    let (scoped, regular): (Vec<_>, Vec<_>) = names.iter().partition(|n| n.starts_with('@'));
+
+    // Batch fetch regular packages (npm API allows max ~128 per request)
+    for chunk in regular.chunks(100) {
+        let packages = chunk.join(",");
 
         let url = format!(
             "https://api.npmjs.org/downloads/point/last-week/{}",
@@ -34,6 +36,12 @@ pub fn batch_fetch_downloads(
                 }
             }
         }
+    }
+
+    // Fetch scoped packages individually
+    for name in scoped {
+        let downloads = fetch_downloads(client, name);
+        results.insert(name.to_string(), downloads);
     }
 
     results
