@@ -51,10 +51,28 @@ pub fn render(results: &[ScanResult]) -> String {
                 )
             };
 
+            // Determine the dependency file based on ecosystem
+            let dep_file = match r.ecosystem.as_str() {
+                "npm" => "package.json",
+                "pypi" => "requirements.txt",
+                _ => "dependencies",
+            };
+
             serde_json::json!({
                 "ruleId": rule_id,
                 "level": level,
                 "message": { "text": message },
+                "locations": [{
+                    "physicalLocation": {
+                        "artifactLocation": {
+                            "uri": dep_file,
+                            "uriBaseId": "%SRCROOT%"
+                        },
+                        "region": {
+                            "startLine": 1
+                        }
+                    }
+                }],
                 "properties": {
                     "package": r.name,
                     "ecosystem": r.ecosystem,
