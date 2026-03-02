@@ -95,7 +95,7 @@ fn main() {
             // Fetch metadata and score each dependency
             let mut results = Vec::new();
             for (i, dep) in deps.iter().enumerate() {
-                eprint!("\r  [{}/{}] Checking {}...", i + 1, deps.len(), dep.name);
+                eprint!("\r\x1B[K  [{}/{}] Checking {}...", i + 1, deps.len(), dep.name);
 
                 let meta = registry::fetch_metadata(&client, &dep.name, dep.ecosystem);
                 let result = scorer::score(&meta);

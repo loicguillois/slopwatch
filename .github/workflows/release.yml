@@ -78,3 +78,10 @@ jobs:
             artifacts/slopwatch-macos-x86_64 \
             artifacts/slopwatch-macos-aarch64 \
             artifacts/slopwatch-windows-x86_64.exe
+
+      - name: Update major version tag
+        run: |
+          VERSION=${{ github.ref_name }}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          git tag -f $MAJOR
+          git push -f origin $MAJOR

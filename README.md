@@ -134,7 +134,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: loicguillois/slopwatch@v1
+      - uses: loicguillois/slopwatch@v0
         with:
           path: "."
           format: "sarif"
