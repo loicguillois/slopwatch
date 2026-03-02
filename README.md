@@ -42,6 +42,18 @@ This model was validated at **100% F1** on a dataset of 81 packages (21 confirme
 
 ### From source
 
+Requires Rust 1.70+. Install via [rustup](https://rustup.rs/) or Homebrew:
+
+```bash
+# macOS
+brew install rust
+
+# All platforms
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Then build:
+
 ```bash
 cargo install --path .
 ```

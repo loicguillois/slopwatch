@@ -64,15 +64,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          ls -la artifacts/
           gh release create ${{ github.ref_name }} \
             --title "${{ github.ref_name }}" \
             --generate-notes \
-            artifacts/slopwatch-linux-x86_64/slopwatch-linux-x86_64 \
-            artifacts/slopwatch-macos-x86_64/slopwatch-macos-x86_64 \
-            artifacts/slopwatch-macos-aarch64/slopwatch-macos-aarch64 \
-            artifacts/slopwatch-windows-x86_64.exe/slopwatch-windows-x86_64.exe
+            artifacts/slopwatch-linux-x86_64 \
+            artifacts/slopwatch-macos-x86_64 \
+            artifacts/slopwatch-macos-aarch64 \
+            artifacts/slopwatch-windows-x86_64.exe
