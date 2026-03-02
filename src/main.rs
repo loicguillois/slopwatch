@@ -107,8 +107,12 @@ fn main() {
                     dep.name
                 );
 
-                let meta =
-                    registry::fetch_metadata(&client, &dep.name, dep.ecosystem, Some(&npm_downloads));
+                let meta = registry::fetch_metadata(
+                    &client,
+                    &dep.name,
+                    dep.ecosystem,
+                    Some(&npm_downloads),
+                );
                 let result = scorer::score(&meta);
                 results.push(result);
 
