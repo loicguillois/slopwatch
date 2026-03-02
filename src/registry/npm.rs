@@ -4,6 +4,41 @@ use std::time::SystemTime;
 use super::PackageMetadata;
 use crate::parser::Ecosystem;
 
+/// Batch fetch download counts for multiple npm packages.
+/// Returns a map of package name -> weekly downloads.
+pub fn batch_fetch_downloads(
+    client: &reqwest::blocking::Client,
+    names: &[&str],
+) -> HashMap<String, u64> {
+    let mut results = HashMap::new();
+
+    // npm API allows max ~128 packages per request, we'll use chunks of 100
+    for chunk in names.chunks(100) {
+        let packages = chunk
+            .iter()
+            .map(|n| urlencoding::encode(n))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let url = format!(
+            "https://api.npmjs.org/downloads/point/last-week/{}",
+            packages
+        );
+
+        if let Ok(resp) = client.get(&url).send() {
+            if let Ok(data) = resp.json::<HashMap<String, serde_json::Value>>() {
+                for (name, value) in data {
+                    if let Some(downloads) = value.get("downloads").and_then(|d| d.as_u64()) {
+                        results.insert(name, downloads);
+                    }
+                }
+            }
+        }
+    }
+
+    results
+}
+
 #[derive(serde::Deserialize)]
 struct NpmPackage {
     #[serde(default)]
@@ -30,7 +65,11 @@ struct NpmDownloads {
     downloads: u64,
 }
 
-pub fn fetch(client: &reqwest::blocking::Client, name: &str) -> PackageMetadata {
+pub fn fetch(
+    client: &reqwest::blocking::Client,
+    name: &str,
+    prefetched_downloads: Option<&HashMap<String, u64>>,
+) -> PackageMetadata {
     let url = format!("https://registry.npmjs.org/{}", name);
     let resp = match client.get(&url).send() {
         Ok(r) if r.status().is_success() => r,
@@ -71,8 +110,10 @@ pub fn fetch(client: &reqwest::blocking::Client, name: &str) -> PackageMetadata 
         .map(|d| d.len() as u64)
         .unwrap_or(0);
 
-    // Fetch download count
-    let downloads_week = fetch_downloads(client, name);
+    // Use prefetched downloads if available, otherwise fetch individually
+    let downloads_week = prefetched_downloads
+        .and_then(|m| m.get(name).copied())
+        .unwrap_or_else(|| fetch_downloads(client, name));
 
     PackageMetadata {
         name: pkg.name,

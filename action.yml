@@ -27,6 +27,10 @@ inputs:
     description: "slopwatch version to use (default: latest)"
     required: false
     default: "latest"
+  comment-on-pr:
+    description: "Post a comment on the PR with critical packages (default: true)"
+    required: false
+    default: "true"
 
 outputs:
   results:
@@ -120,10 +124,41 @@ runs:
         echo "EOF" >> "$GITHUB_OUTPUT"
         echo "critical_count=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
 
+        # Generate critical packages list for PR comment
+        CRITICAL_LIST=$(echo "$RESULTS" | python3 -c "
+        import json, sys
+        data = json.load(sys.stdin)
+        critical = [r for r in data if r.get('severity') in ('Critical', 'NotFound')]
+        for r in critical:
+            print(f\"- **{r['name']}** ({r['ecosystem']}): score {r['trust_score']:.0f}/100\")
+        " 2>/dev/null || echo "")
+        echo "critical_list<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$CRITICAL_LIST" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+
         if [ "${{ inputs.fail-on-critical }}" = "true" ] && [ "$EXIT_CODE" -ne 0 ]; then
           echo "::error::slopwatch found critical packages. Review the scan results above."
           exit 1
         fi
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && inputs.comment-on-pr == 'true' && steps.scan.outputs.critical_count != '0'
+      shell: bash
+      run: |
+        COMMENT="## ⚠️ Slopwatch: Suspicious packages detected
+
+        The following packages have critically low trust scores and may be slopsquatting attacks:
+
+        ${{ steps.scan.outputs.critical_list }}
+
+        > **What is slopsquatting?** Attackers register package names that LLMs commonly hallucinate, turning AI-generated code into supply-chain attacks.
+
+        Please verify these packages before merging."
+
+        gh pr comment "${{ github.event.pull_request.number }}" --body "$COMMENT"
+      env:
+        GH_TOKEN: ${{ github.token }}
+      continue-on-error: true
 
     - name: Upload SARIF
       if: inputs.format == 'sarif' && always()

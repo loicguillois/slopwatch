@@ -1,7 +1,9 @@
 pub mod npm;
 pub mod pypi;
 
-use crate::parser::Ecosystem;
+use std::collections::HashMap;
+
+use crate::parser::{Dependency, Ecosystem};
 
 /// Metadata fetched from a package registry.
 #[derive(Debug, Clone)]
@@ -42,14 +44,33 @@ impl PackageMetadata {
     }
 }
 
+/// Prefetch download counts for npm packages using batch API.
+pub fn prefetch_npm_downloads(
+    client: &reqwest::blocking::Client,
+    deps: &[Dependency],
+) -> HashMap<String, u64> {
+    let npm_names: Vec<&str> = deps
+        .iter()
+        .filter(|d| d.ecosystem == Ecosystem::Npm)
+        .map(|d| d.name.as_str())
+        .collect();
+
+    if npm_names.is_empty() {
+        return HashMap::new();
+    }
+
+    npm::batch_fetch_downloads(client, &npm_names)
+}
+
 /// Fetch metadata for a package from the appropriate registry.
 pub fn fetch_metadata(
     client: &reqwest::blocking::Client,
     name: &str,
     ecosystem: Ecosystem,
+    npm_downloads: Option<&HashMap<String, u64>>,
 ) -> PackageMetadata {
     match ecosystem {
-        Ecosystem::Npm => npm::fetch(client, name),
+        Ecosystem::Npm => npm::fetch(client, name, npm_downloads),
         Ecosystem::PyPI => pypi::fetch(client, name),
     }
 }

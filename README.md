@@ -134,7 +134,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: loicguillois/slopwatch@v0
+      # Use full SHA for security (find latest at https://github.com/loicguillois/slopwatch/releases)
+      - uses: loicguillois/slopwatch@COMMIT_SHA  # Replace with full SHA from releases
         with:
           path: "."
           format: "sarif"
@@ -151,6 +152,7 @@ jobs:
 | `threshold` | `22` | Trust score threshold for CRITICAL severity |
 | `fail-on-critical` | `true` | Fail the workflow if CRITICAL packages are found |
 | `version` | `latest` | slopwatch version to use |
+| `comment-on-pr` | `true` | Post a comment on the PR listing critical packages |
 
 ### Action outputs
 

@@ -92,6 +92,11 @@ fn main() {
                 .build()
                 .expect("Failed to create HTTP client");
 
+            // Prefetch npm download counts using batch API to avoid rate limiting
+            eprint!("  Fetching download stats...");
+            let npm_downloads = registry::prefetch_npm_downloads(&client, &deps);
+            eprintln!("\r\x1B[K");
+
             // Fetch metadata and score each dependency
             let mut results = Vec::new();
             for (i, dep) in deps.iter().enumerate() {
@@ -102,12 +107,13 @@ fn main() {
                     dep.name
                 );
 
-                let meta = registry::fetch_metadata(&client, &dep.name, dep.ecosystem);
+                let meta =
+                    registry::fetch_metadata(&client, &dep.name, dep.ecosystem, Some(&npm_downloads));
                 let result = scorer::score(&meta);
                 results.push(result);
 
-                // Rate limiting
-                thread::sleep(Duration::from_millis(200));
+                // Rate limiting (reduced since downloads are prefetched)
+                thread::sleep(Duration::from_millis(100));
             }
             eprintln!("\r{}\r", " ".repeat(80)); // Clear progress line
 
